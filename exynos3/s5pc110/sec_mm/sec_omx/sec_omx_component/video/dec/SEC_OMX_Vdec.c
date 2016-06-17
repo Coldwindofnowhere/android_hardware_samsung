@@ -41,44 +41,47 @@
 #define SEC_LOG_OFF
 #include "SEC_OSAL_Log.h"
 
+#if defined(__GNUC__) && __GNUC__ >= 5 && !defined(__cplusplus)
+	        extern inline void SEC_UpdateFrameSize(OMX_COMPONENTTYPE *pOMXComponent)
+#else
+	        inline void SEC_UpdateFrameSize(OMX_COMPONENTTYPE *pOMXComponent)
+#endif
+		{
+		    SEC_OMX_BASECOMPONENT *pSECComponent = (SEC_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
+		    SEC_OMX_BASEPORT      *secInputPort = &pSECComponent->pSECPort[INPUT_PORT_INDEX];
+		    SEC_OMX_BASEPORT      *secOutputPort = &pSECComponent->pSECPort[OUTPUT_PORT_INDEX];
 
-inline void SEC_UpdateFrameSize(OMX_COMPONENTTYPE *pOMXComponent)
-{
-    SEC_OMX_BASECOMPONENT *pSECComponent = (SEC_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-    SEC_OMX_BASEPORT      *secInputPort = &pSECComponent->pSECPort[INPUT_PORT_INDEX];
-    SEC_OMX_BASEPORT      *secOutputPort = &pSECComponent->pSECPort[OUTPUT_PORT_INDEX];
+		    if ((secOutputPort->portDefinition.format.video.nFrameWidth !=
+			    secInputPort->portDefinition.format.video.nFrameWidth) ||
+			(secOutputPort->portDefinition.format.video.nFrameHeight !=
+			    secInputPort->portDefinition.format.video.nFrameHeight)) {
+			OMX_U32 width = 0, height = 0;
 
-    if ((secOutputPort->portDefinition.format.video.nFrameWidth !=
-            secInputPort->portDefinition.format.video.nFrameWidth) ||
-        (secOutputPort->portDefinition.format.video.nFrameHeight !=
-            secInputPort->portDefinition.format.video.nFrameHeight)) {
-        OMX_U32 width = 0, height = 0;
+			secOutputPort->portDefinition.format.video.nFrameWidth =
+			    secInputPort->portDefinition.format.video.nFrameWidth;
+			secOutputPort->portDefinition.format.video.nFrameHeight =
+			    secInputPort->portDefinition.format.video.nFrameHeight;
+			width = secOutputPort->portDefinition.format.video.nStride =
+			    secInputPort->portDefinition.format.video.nStride;
+			height = secOutputPort->portDefinition.format.video.nSliceHeight =
+			    secInputPort->portDefinition.format.video.nSliceHeight;
 
-        secOutputPort->portDefinition.format.video.nFrameWidth =
-            secInputPort->portDefinition.format.video.nFrameWidth;
-        secOutputPort->portDefinition.format.video.nFrameHeight =
-            secInputPort->portDefinition.format.video.nFrameHeight;
-        width = secOutputPort->portDefinition.format.video.nStride =
-            secInputPort->portDefinition.format.video.nStride;
-        height = secOutputPort->portDefinition.format.video.nSliceHeight =
-            secInputPort->portDefinition.format.video.nSliceHeight;
+			switch(secOutputPort->portDefinition.format.video.eColorFormat) {
+			case OMX_COLOR_FormatYUV420Planar:
+			case OMX_COLOR_FormatYUV420SemiPlanar:
+			case OMX_SEC_COLOR_FormatANBYUV420SemiPlanar:
+			    if (width && height)
+				secOutputPort->portDefinition.nBufferSize = (width * height * 3) / 2;
+			    break;
+			default:
+			    if (width && height)
+				secOutputPort->portDefinition.nBufferSize = width * height * 2;
+			    break;
+			}
+		    }
 
-        switch(secOutputPort->portDefinition.format.video.eColorFormat) {
-        case OMX_COLOR_FormatYUV420Planar:
-        case OMX_COLOR_FormatYUV420SemiPlanar:
-        case OMX_SEC_COLOR_FormatANBYUV420SemiPlanar:
-            if (width && height)
-                secOutputPort->portDefinition.nBufferSize = (width * height * 3) / 2;
-            break;
-        default:
-            if (width && height)
-                secOutputPort->portDefinition.nBufferSize = width * height * 2;
-            break;
-        }
-    }
-
-  return ;
-}
+		  return ;
+		}
 
 OMX_ERRORTYPE SEC_OMX_UseBuffer(
     OMX_IN OMX_HANDLETYPE            hComponent,
